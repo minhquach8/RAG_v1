@@ -51,10 +51,12 @@ The program will:
 - After 200 files, it prompts you to continue or stop.
 - Progress is saved in progress.txt, allowing you to resume from the last processed file.
 
-3. **Output**:Results are appended to `article_answers.csv` with columns for each question (e.g., `Authors_Publication`, `DOI`, `Main_Findings`).
+3. **Output**:
+Results are appended to `article_answers.csv` with columns for each question (e.g., `Authors_Publication`, `DOI`, `Main_Findings`).
 
 
 ## File Structure
+```
 your-repo-name/
 │
 ├── config.py           # Configuration settings (paths, questions, model parameters)
@@ -63,6 +65,7 @@ your-repo-name/
 ├── rag_pipeline.py     # RAG pipeline setup and answer generation
 ├── main.py             # Main script to orchestrate the workflow
 ├── environment.yml     # Conda environment file with dependencies
+```
 
 
 ## Dependencies
