@@ -1,5 +1,9 @@
-import fitz, os, time, torch
+import os
+import fitz  # PyMuPDF
+import time
+import torch
 import pandas as pd
+import shutil  # Thêm để xóa thư mục
 from transformers import logging as transformers_logging
 
 # Import custom modules
@@ -79,6 +83,7 @@ def main():
 
         # Create or load FAISS vector store
         pdf_name = os.path.basename(pdf_path).replace(".pdf", "")
+        faiss_index_path = os.path.join(os.getcwd(), f"faiss_index_{pdf_name}")  # Đường dẫn thư mục FAISS
         try:
             vectorstore = rag_pipeline.create_or_load_vectorstore(
                 documents, embeddings, pdf_name, config.CHUNK_SIZE, config.CHUNK_OVERLAP, logger
@@ -129,6 +134,14 @@ def main():
         # Save progress
         utils.save_progress(pdf_file)
 
+        # Delete FAISS index folder after processing the PDF
+        if os.path.exists(faiss_index_path):
+            try:
+                shutil.rmtree(faiss_index_path)
+                logger.info(f"Deleted FAISS index folder: {faiss_index_path}")
+            except Exception as e:
+                logger.error(f"Error deleting FAISS index folder {faiss_index_path}: {str(e)}")
+
         # Pause after processing 50 files
         if processed_files % 50 == 0:
             logger.info(f"Processed {processed_files} files. Pausing for 5 minutes to cool down...")
@@ -146,6 +159,16 @@ def main():
             if choice == "n":
                 logger.info("User chose to stop. Exiting...")
                 break
+
+    # Final cleanup: Delete any remaining FAISS index folders
+    for folder in os.listdir(os.getcwd()):
+        if folder.startswith("faiss_index_"):
+            folder_path = os.path.join(os.getcwd(), folder)
+            try:
+                shutil.rmtree(folder_path)
+                logger.info(f"Final cleanup - Deleted FAISS index folder: {folder_path}")
+            except Exception as e:
+                logger.error(f"Final cleanup - Error deleting FAISS index folder {folder_path}: {str(e)}")
 
     logger.info("Processing completed.")
 
