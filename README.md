@@ -19,8 +19,8 @@ This project processes academic PDF papers to extract key information using a Re
 ## Installation
 1. **Clone the repository**:
 ```bash
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/minhquach8/RAG_v1.git
+cd RAG_v1
 ```
 
 2. **Set up the Conda environment**:Create and activate a Conda environment using the provided `environment.yml` file:
@@ -67,7 +67,7 @@ The program will prompt you to choose:
 
 ## File Structure
 ```
-your-repo-name/
+RAG_v1/
 │
 ├── config.py           # Configuration settings (paths, questions, model parameters)
 ├── utils.py            # Utility functions (logging, text cleaning, progress management)
