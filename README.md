@@ -61,6 +61,20 @@ The program will prompt you to choose:
     - After 200 files, prompts you to continue or stop.
     - Progress is saved in `progress.txt`, allowing resumption from the last processed file.
 
+### Interactive Mode
+- Prompts for the path to a single PDF (supports `~` for home directory, e.g., `~/Downloads/paper.pdf`).
+- Processes the PDF and allows you to ask questions about its content.
+- Example:
+```plain
+Interactive Q&A Mode
+Enter your question about the PDF (or type 'exit' to quit):
+Enter your question about the PDF (or type 'exit' to quit): What is the title of this PDF?
+Answer: ...
+
+Your question (or 'exit' to quit): exit
+User exited Interactive Q&A Mode.
+```
+
 3. **Output**:
 - **Batch Mode**: Results are appended to `article_answers.csv` with columns for each question (e.g., `Authors_Publication`, `DOI`, `Main_Findings`).
 - **Interactive Mode**: Answers are displayed directly in the terminal.
