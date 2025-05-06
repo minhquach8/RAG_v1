@@ -1,4 +1,6 @@
-import os, re, time, torch
+import os, re
+import torch
+import time
 from transformers import pipeline, AutoModelForCausalLM, AutoTokenizer
 from langchain_huggingface import HuggingFaceEmbeddings, HuggingFacePipeline
 from langchain_community.vectorstores import FAISS
@@ -13,14 +15,23 @@ def initialize_embeddings(model_name, device, logger):
     
     Args:
         model_name (str): Name of the embedding model.
-        device (str): Device to run the model on (e.g., 'mps', 'cpu').
+        device (str): Device to run the model on (e.g., 'mps', 'cuda', 'cpu').
         logger (logging.Logger): Logger instance for logging messages.
     
     Returns:
         HuggingFaceEmbeddings: Initialized embeddings.
     """
     logger.info("Initializing embeddings")
-    return HuggingFaceEmbeddings(model_name=model_name, model_kwargs={"device": device})
+    try:
+        embeddings = HuggingFaceEmbeddings(model_name=model_name, model_kwargs={"device": device})
+        return embeddings
+    except RuntimeError as e:
+        if "out of memory" in str(e).lower():
+            logger.warning(f"Out of memory error on {device}. Falling back to CPU for embeddings.")
+            return HuggingFaceEmbeddings(model_name=model_name, model_kwargs={"device": "cpu"})
+        else:
+            logger.error(f"Error initializing embeddings: {str(e)}")
+            raise
 
 # Initialize the language model for answer generation
 def initialize_llm(model_name, hf_token, device, max_new_tokens, logger):
@@ -30,7 +41,7 @@ def initialize_llm(model_name, hf_token, device, max_new_tokens, logger):
     Args:
         model_name (str): Name of the language model.
         hf_token (str): Hugging Face token for authentication.
-        device (str): Device to run the model on (e.g., 'mps', 'cpu').
+        device (str): Device to run the model on (e.g., 'mps', 'cuda', 'cpu').
         max_new_tokens (int): Maximum number of tokens to generate.
         logger (logging.Logger): Logger instance for logging messages.
     
@@ -61,9 +72,34 @@ def initialize_llm(model_name, hf_token, device, max_new_tokens, logger):
         llm = HuggingFacePipeline(pipeline=llm_pipeline)
         logger.info("LLM initialized successfully")
         return llm
-    except Exception as e:
-        logger.error(f"Error initializing LLM: {str(e)}")
-        raise
+    except RuntimeError as e:
+        if "out of memory" in str(e).lower():
+            logger.warning(f"Out of memory error on {device}. Falling back to CPU for LLM.")
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+                low_cpu_mem_usage=True,
+                device_map="cpu",
+                token=hf_token,
+            )
+            tokenizer = AutoTokenizer.from_pretrained(model_name, token=hf_token)
+            llm_pipeline = pipeline(
+                "text-generation",
+                model=model,
+                tokenizer=tokenizer,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                temperature=None,
+                top_p=None,
+                top_k=None,
+                device=-1,
+            )
+            llm = HuggingFacePipeline(pipeline=llm_pipeline)
+            logger.info("LLM initialized successfully on CPU")
+            return llm
+        else:
+            logger.error(f"Error initializing LLM: {str(e)}")
+            raise
 
 # Create or load a FAISS vector store for document retrieval
 def create_or_load_vectorstore(documents, embeddings, pdf_name, chunk_size, chunk_overlap, logger):
@@ -184,7 +220,7 @@ def create_rag_pipeline(llm, vectorstore, retriever_k, retriever_threshold, logg
         logger.error(f"Error creating RAG pipeline: {str(e)}")
         raise
 
-# Generate answers for a list of questions using the RAG pipeline
+# Generate answers for a list of questions using the RAG pipeline (Batch Mode)
 def generate_answers(qa_chain, vectorstore, questions_list, doi, authors, retriever_k, retriever_threshold, remove_references, logger):
     """
     Generate answers for a list of questions using the RAG pipeline.
@@ -262,3 +298,74 @@ def generate_answers(qa_chain, vectorstore, questions_list, doi, authors, retrie
         answers_dict[feature] = answer
 
     return answers_dict
+
+# Interactive Q&A for a single PDF (Interactive Mode)
+def interactive_qa(qa_chain, vectorstore, retriever_k, retriever_threshold, remove_references, logger):
+    """
+    Run an interactive Q&A session for a single PDF.
+    
+    Args:
+        qa_chain (RetrievalQA): RAG pipeline for answering questions.
+        vectorstore (FAISS): Vector store for document retrieval.
+        retriever_k (int): Number of documents to retrieve.
+        retriever_threshold (float): Similarity score threshold for retrieval.
+        remove_references (callable): Function to remove references from text.
+        logger (logging.Logger): Logger instance for logging messages.
+    """
+    retriever = vectorstore.as_retriever(
+        search_type="similarity_score_threshold",
+        search_kwargs={"k": retriever_k, "score_threshold": retriever_threshold},
+    )
+
+    print("\nInteractive Q&A Mode")
+    print("Enter your question about the PDF (or type 'exit' to quit):")
+    
+    while True:
+        question = input("Your question (or 'exit' to quit): ").strip()
+        if question.lower() == "exit":
+            print("Exiting Interactive Q&A Mode.")
+            logger.info("User exited Interactive Q&A Mode.")
+            break
+
+        if not question:
+            print("Please enter a valid question.")
+            continue
+
+        logger.info(f"User asked: {question}")
+
+        # Retrieve relevant documents
+        logger.info("Retrieving documents")
+        start_time = time.time()
+        try:
+            retrieved_docs = retriever.invoke(question)
+            retrieval_time = time.time() - start_time
+            logger.info(f"Retrieval time: {retrieval_time:.2f} seconds")
+            logger.info(f"Retrieved {len(retrieved_docs)} documents")
+        except Exception as e:
+            logger.error(f"Error retrieving documents for question '{question}': {str(e)}")
+            print("Error retrieving documents. Please try again.")
+            continue
+
+        retrieved_texts = []
+        for doc in retrieved_docs:
+            content = remove_references(doc.page_content)
+            if content:
+                retrieved_texts.append(content)
+        combined_context = " ".join(retrieved_texts)
+
+        # Generate answer
+        logger.info("Generating answer")
+        start_time = time.time()
+        try:
+            response = qa_chain.invoke(question)
+            answer_time = time.time() - start_time
+            logger.info(f"Answer generation time: {answer_time:.2f} seconds")
+        except Exception as e:
+            logger.error(f"Error generating answer for question '{question}': {str(e)}")
+            print("Error generating answer. Please try again.")
+            continue
+
+        answer_text = response["result"]
+        answer = extract_answer(answer_text)
+        # logger.info(f"Answer: {answer}")
+        print(f"\nAnswer: {answer}\n")

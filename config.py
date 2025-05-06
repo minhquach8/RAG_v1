@@ -1,4 +1,5 @@
 # Configuration settings for the PDF processing and RAG pipeline
+
 import os
 
 # Directory path for PDF files
@@ -16,7 +17,7 @@ MODEL_NAME = "Qwen/Qwen3-8B"
 MAX_NEW_TOKENS = 300
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 300
-RETRIEVER_K = 15
+RETRIEVER_K = 10  
 RETRIEVER_THRESHOLD = 0.5
 
 # List of questions to extract from each paper

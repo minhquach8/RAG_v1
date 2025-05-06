@@ -6,7 +6,20 @@ from dotenv import load_dotenv
 
 # Set up logging configuration
 def setup_logging(log_file, log_level=logging.INFO):
-    """Configure logging to write to both a file and the console."""
+    """
+    Configure logging to write to both a file and the console.
+    
+    Args:
+        log_file (str): Path to the log file.
+        log_level (int): Logging level (e.g., logging.INFO).
+    
+    Returns:
+        logging.Logger: Configured logger instance.
+    """
+    # Clear any existing handlers to avoid duplicate logging
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -15,18 +28,19 @@ def setup_logging(log_file, log_level=logging.INFO):
             logging.StreamHandler(),
         ],
     )
-    return logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
+    return logger
 
 # Manage log file by checking its age and refreshing if needed
-def manage_log_file(log_file, max_age):
+def manage_log_file(log_file, max_age, logger):
     """
     Check the age of the log file and refresh it if older than max_age (in seconds).
     
     Args:
         log_file (str): Path to the log file.
         max_age (int): Maximum age of the log file in seconds.
+        logger (logging.Logger): Logger instance to reconfigure after refresh.
     """
-    logger = logging.getLogger(__name__)
     if os.path.exists(log_file):
         file_age = time.time() - os.path.getmtime(log_file)
         if file_age > max_age:
@@ -34,6 +48,9 @@ def manage_log_file(log_file, max_age):
             os.remove(log_file)
             with open(log_file, "a") as f:
                 f.write(f"New log file created at {time.ctime()}\n")
+            # Reconfigure logging after file refresh
+            setup_logging(log_file)
+            logger.info("Logging reconfigured after file refresh.")
 
 # Clean LaTeX symbols from text
 def clean_latex(text):

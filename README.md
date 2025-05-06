@@ -1,9 +1,12 @@
 # Academic Paper Analysis with RAG Pipeline
-This project processes academic PDF papers to extract key information using a Retrieval-Augmented Generation (RAG) pipeline. It leverages AI models to answer predefined questions about the papers, such as authorship, DOI, methodology, findings, and more, and saves the results in a CSV file.
+This project processes academic PDF papers to extract key information using a Retrieval-Augmented Generation (RAG) pipeline. It leverages AI models to answer questions about the papers, supporting two modes: batch processing (for multiple PDFs) and interactive Q&A (for a single PDF).
 
 ## Features
 - Extracts metadata (e.g., DOI, authors) from academic PDFs.
 - Uses a RAG pipeline with a language model to answer questions about the papers.
+- Supports **Batch Mode**: Processes multiple PDFs and saves results to a CSV file.
+- Supports **Interactive Mode**: Processes a single PDF and allows users to ask questions interactively.
+- Cross-platform compatibility (macOS and Windows) with device fallback (e.g., MPS to CPU on memory errors).
 - Supports progress tracking to resume processing after interruptions.
 - Logs detailed information for debugging and monitoring.
 
@@ -11,7 +14,7 @@ This project processes academic PDF papers to extract key information using a Re
 - Python 3.8 or higher
 - Conda (Anaconda or Miniconda)
 - A Hugging Face token (stored in a `.env` file)
-- PDF files stored in the specified directory 
+- PDF files (either in the specified directory for Batch Mode or provided manually for Interactive Mode)
 
 ## Installation
 1. **Clone the repository**:
@@ -32,7 +35,9 @@ HF_TOKEN=your_huggingface_token
 ```
 You can obtain a token from Hugging Face.
 
-4. **Prepare PDF files**:Place your academic PDF files in the directory specified in `config.py`. 
+4. **Prepare PDF files**:
+- For Batch Mode: Place your academic PDF files in the directory specified in `config.py`.
+- For Interactive Mode: Have the path to a single PDF ready to input when prompted.
 
 
 ## Usage
@@ -41,19 +46,24 @@ You can obtain a token from Hugging Face.
 ```bash
 python main.py
 ```
-The program will:
-- Process each PDF file in the specified directory.
-- Extract metadata and answer predefined questions.
-- Save results to article_answers.csv.
 
-2. **Pause and Resume**:
-- The program pauses after every 50 files for 5 minutes to cool down.
-- After 200 files, it prompts you to continue or stop.
-- Progress is saved in progress.txt, allowing you to resume from the last processed file.
+2. **Select Running Mode**:
+The program will prompt you to choose:
+- **Batch Mode (1)**: Process all PDFs in the specified directory and save results to `article_answers.csv`.
+- **Interactive Mode (2)**: Process a single PDF and ask questions interactively.
+
+### Batch Mode
+- Processes each PDF in the directory specified in `config.py`.
+- Extracts metadata and answers predefined questions (e.g., authorship, DOI, methodology).
+- Saves results to `article_answers.csv`.
+- **Pause and Resume**:
+    - Pauses after every 50 files for 5 minutes to cool down.
+    - After 200 files, prompts you to continue or stop.
+    - Progress is saved in `progress.txt`, allowing resumption from the last processed file.
 
 3. **Output**:
-Results are appended to `article_answers.csv` with columns for each question (e.g., `Authors_Publication`, `DOI`, `Main_Findings`).
-
+- **Batch Mode**: Results are appended to `article_answers.csv` with columns for each question (e.g., `Authors_Publication`, `DOI`, `Main_Findings`).
+- **Interactive Mode**: Answers are displayed directly in the terminal.
 
 ## File Structure
 ```
@@ -62,7 +72,7 @@ your-repo-name/
 ├── config.py           # Configuration settings (paths, questions, model parameters)
 ├── utils.py            # Utility functions (logging, text cleaning, progress management)
 ├── pdf_processor.py    # PDF processing functions (metadata extraction, document loading)
-├── rag_pipeline.py     # RAG pipeline setup and answer generation
+├── rag_pipeline.py     # RAG pipeline setup and answer generation (Batch and Interactive modes)
 ├── main.py             # Main script to orchestrate the workflow
 ├── environment.yml     # Conda environment file with dependencies
 ```
@@ -74,7 +84,7 @@ The `environment.yml` file includes all necessary packages. Key dependencies inc
 - `transformers`: For loading the language model.
 - `langchain`: For the RAG pipeline and document processing.
 - `pymupdf`: For PDF loading and metadata extraction.
-- `pandas`: For saving results to CSV.
+- `pandas`: For saving results to CSV (Batch Mode).
 
 To update the `environment.yml` file after adding new dependencies:
 ```bash
@@ -82,7 +92,8 @@ conda env export > environment.yml
 ```
 
 ## Notes
-- The program uses the `Qwen/Qwen3-8B` model from Hugging Face for answer generation. Ensure you have sufficient computational resources (e.g., GPU or MPS support on macOS).
+- The program uses the `Qwen/Qwen3-8B` model from Hugging Face for answer generation. Ensure you have sufficient computational resources (e.g., GPU, MPS on macOS, or CUDA on Windows).
+- Device fallback is implemented: if MPS (macOS) or CUDA (Windows) runs out of memory, the program switches to CPU automatically.
 - The `__pycache__` folder is auto-generated by Python for performance optimization. It is included in `.gitignore` to avoid tracking in Git.
 - Logs are stored in `processing_log.txt` and refreshed every 30 minutes.
 
